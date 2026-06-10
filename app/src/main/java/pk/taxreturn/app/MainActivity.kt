@@ -3,54 +3,41 @@ package pk.taxreturn.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import pk.taxreturn.app.ui.DeductionsScreen
-import pk.taxreturn.app.ui.IncomeScreen
-import pk.taxreturn.app.ui.PersonalScreen
-import pk.taxreturn.app.ui.SummaryScreen
-import pk.taxreturn.app.ui.TaxViewModel
-import pk.taxreturn.app.ui.WealthScreen
+import pk.taxreturn.app.ui.*
 
+// ââ Brand colour scheme âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 private val GreenLight = lightColorScheme(
-    primary = Color(0xFF0B5E2A),
-    secondary = Color(0xFF2E7D32),
-    tertiary = Color(0xFF558B2F)
+    primary         = Color(0xFF1B5E20),
+    onPrimary       = Color.White,
+    primaryContainer = Color(0xFFA5D6A7),
+    secondary       = Color(0xFF2E7D32),
+    tertiary        = Color(0xFF00695C),
+    background      = Color(0xFFF9FBF9),
+    surface         = Color(0xFFFFFFFF),
+    surfaceVariant  = Color(0xFFEDF7EE)
 )
 private val GreenDark = darkColorScheme(
-    primary = Color(0xFF7BC67E),
-    secondary = Color(0xFF81C784),
-    tertiary = Color(0xFFAED581)
+    primary         = Color(0xFF81C784),
+    onPrimary       = Color(0xFF003300),
+    primaryContainer = Color(0xFF1B5E20),
+    secondary       = Color(0xFF80CBC4),
+    tertiary        = Color(0xFF80CBC4)
 )
 
-data class Tab(val title: String, val icon: ImageVector)
+data class NavTab(val title: String, val icon: ImageVector)
 
 class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -59,45 +46,89 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) GreenDark else GreenLight) {
                 val vm: TaxViewModel = viewModel()
-                var tab by rememberSaveable { mutableIntStateOf(0) }
-                val tabs = listOf(
-                    Tab("Profile", Icons.Filled.Person),
-                    Tab("Income", Icons.Filled.Receipt),
-                    Tab("Deductions", Icons.Filled.Savings),
-                    Tab("Wealth", Icons.Filled.AccountBalance),
-                    Tab("Summary", Icons.Filled.Calculate)
-                )
-                Surface {
-                    Scaffold(
-                        topBar = {
-                            TopAppBar(
-                                title = { Text("Tax Return PK — TY 2026") },
-                                colors = TopAppBarDefaults.topAppBarColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                val ctx = LocalContext.current
+
+                if (!vm.isLoggedIn) {
+                    // Show login / register screen
+                    LoginScreen(onLoggedIn = { user -> vm.login(user) })
+                } else {
+                    // Main app
+                    var tab by rememberSaveable { mutableIntStateOf(0) }
+                    val tabs = listOf(
+                        NavTab("Profile",     Icons.Filled.Person),
+                        NavTab("Income",      Icons.Filled.Receipt),
+                        NavTab("Deductions",  Icons.Filled.Savings),
+                        NavTab("Wealth",      Icons.Filled.AccountBalance),
+                        NavTab("Summary",     Icons.Filled.Calculate)
+                    )
+
+                    // Live tax summary badge
+                    val c = vm.computation
+                    val badgeLabel = if (c.totalTaxChargeable == 0L) "" else
+                        if (c.balance < 0) "â© ${fmtK(-c.balance)}" else "â ${fmtK(c.balance)}"
+
+                    Surface {
+                        Scaffold(
+                            topBar = {
+                                TopAppBar(
+                                    title = {
+                                        androidx.compose.foundation.layout.Column {
+                                            Text("Tax Return PK â TY 2026")
+                                            if (vm.data.name.isNotEmpty())
+                                                Text(
+                                                    vm.data.name,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                                )
+                                        }
+                                    },
+                                    colors = TopAppBarDefaults.topAppBarColors(
+                                        containerColor    = MaterialTheme.colorScheme.primary,
+                                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    actions = {
+                                        if (badgeLabel.isNotEmpty()) {
+                                            Badge(
+                                                containerColor = if (c.balance < 0) Color(0xFF2E7D32) else Color(0xFFE65100)
+                                            ) {
+                                                Text(badgeLabel, color = Color.White)
+                                            }
+                                        }
+                                    }
                                 )
-                            )
-                        },
-                        bottomBar = {
-                            NavigationBar {
-                                tabs.forEachIndexed { i, t ->
-                                    NavigationBarItem(
-                                        selected = tab == i,
-                                        onClick = { tab = i },
-                                        icon = { Icon(t.icon, contentDescription = t.title) },
-                                        label = { Text(t.title) }
-                                    )
+                            },
+                            bottomBar = {
+                                NavigationBar {
+                                    tabs.forEachIndexed { i, t ->
+                                        NavigationBarItem(
+                                            selected = tab == i,
+                                            onClick  = { tab = i },
+                                            icon     = {
+                                                // Show dot on Summary if there are warnings
+                                                if (i == 4 && c.warnings.isNotEmpty()) {
+                                                    BadgedBox(badge = {
+                                                        Badge { Text("${c.warnings.size}") }
+                                                    }) {
+                                                        Icon(t.icon, contentDescription = t.title)
+                                                    }
+                                                } else {
+                                                    Icon(t.icon, contentDescription = t.title)
+                                                }
+                                            },
+                                            label    = { Text(t.title) }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                    ) { pad ->
-                        androidx.compose.foundation.layout.Box(Modifier.padding(pad)) {
-                            when (tab) {
-                                0 -> PersonalScreen(vm)
-                                1 -> IncomeScreen(vm)
-                                2 -> DeductionsScreen(vm)
-                                3 -> WealthScreen(vm)
-                                else -> SummaryScreen(vm)
+                        ) { pad ->
+                            Box(Modifier.padding(pad)) {
+                                when (tab) {
+                                    0 -> PersonalScreen(vm, onLogout = { vm.logout(ctx) })
+                                    1 -> IncomeScreen(vm)
+                                    2 -> DeductionsScreen(vm)
+                                    3 -> WealthScreen(vm)
+                                    else -> SummaryScreen(vm)
+                                }
                             }
                         }
                     }
@@ -105,4 +136,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+/** Format large numbers as e.g. "1.2M" or "350K" for the top-bar badge. */
+private fun fmtK(v: Long): String = when {
+    v >= 1_000_000 -> "%.1fM".format(v / 1_000_000.0)
+    v >= 1_000     -> "${v / 1_000}K"
+    else           -> v.toString()
 }
