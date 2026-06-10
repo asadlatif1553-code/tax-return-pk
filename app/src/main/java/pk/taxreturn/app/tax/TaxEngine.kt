@@ -6,32 +6,32 @@ import kotlin.math.min
 import kotlin.math.roundToLong
 
 /**
- * Tax computation for Tax Year 2026 (1 Jul 2025 â 30 Jun 2026).
+ * Tax computation for Tax Year 2026 (1 Jul 2025 - 30 Jun 2026).
  * Income Tax Ordinance 2001, as amended by Finance Act 2025.
  *
  * VERIFY rates against the ordinance PDF in the workspace folder before release.
  *
- * âââ SALARIED individual (salary > 75% of taxable income) â Division I, First Schedule âââ
- *   â¤ 600,000              : 0%
- *   600,001 â 1,200,000    : 1%   of excess over 600,000
- *   1,200,001 â 2,200,000  : Rs 6,000 + 11% of excess over 1,200,000
- *   2,200,001 â 3,200,000  : Rs 116,000 + 23% of excess over 2,200,000
- *   3,200,001 â 4,100,000  : Rs 346,000 + 30% of excess over 3,200,000
+ * --- SALARIED individual (salary > 75% of taxable income) - Division I, First Schedule ---
+ *   <= 600,000              : 0%
+ *   600,001 - 1,200,000    : 1%   of excess over 600,000
+ *   1,200,001 - 2,200,000  : Rs 6,000 + 11% of excess over 1,200,000
+ *   2,200,001 - 3,200,000  : Rs 116,000 + 23% of excess over 2,200,000
+ *   3,200,001 - 4,100,000  : Rs 346,000 + 30% of excess over 3,200,000
  *   > 4,100,000            : Rs 616,000 + 35% of excess over 4,100,000
  *
- * âââ NON-SALARIED individual â Division II, First Schedule âââââââââââââââââââââââââââââââ
- *   â¤ 600,000              : 0%
- *   600,001 â 1,200,000    : 15% of excess over 600,000
- *   1,200,001 â 2,400,000  : Rs 90,000 + 20% of excess over 1,200,000
- *   2,400,001 â 3,600,000  : Rs 330,000 + 25% of excess over 2,400,000
- *   3,600,001 â 6,000,000  : Rs 630,000 + 30% of excess over 3,600,000
+ * --- NON-SALARIED individual - Division II, First Schedule ---
+ *   <= 600,000              : 0%
+ *   600,001 - 1,200,000    : 15% of excess over 600,000
+ *   1,200,001 - 2,400,000  : Rs 90,000 + 20% of excess over 1,200,000
+ *   2,400,001 - 3,600,000  : Rs 330,000 + 25% of excess over 2,400,000
+ *   3,600,001 - 6,000,000  : Rs 630,000 + 30% of excess over 3,600,000
  *   > 6,000,000            : Rs 1,350,000 + 35% of excess over 6,000,000
  *
- * âââ CAPITAL GAINS â Section 37/37A âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+ * --- CAPITAL GAINS - Section 37/37A ---
  *   Immovable property (open plot, built-up): final tax at rate depending on holding period.
- *   Listed securities: 15% (< 1yr), 12.5% (1â2yr), 0% (> 2yr) â Section 37A(6).
+ *   Listed securities: 15% (< 1yr), 12.5% (1-2yr), 0% (> 2yr) - Section 37A(6).
  *
- * âââ FINAL TAXES âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+ * --- FINAL TAXES ---
  *   Profit on debt (bank)  : 20% u/s 7B
  *   Profit on debt (NSS)   : 15% u/s 7B
  *   Dividend               : 15% u/s 5
@@ -93,7 +93,7 @@ object TaxEngine {
     }
 
     fun nonSalariedSlabTax(taxable: Long): Long {
-        // Division II â verify against 2026 ordinance PDF
+        // Division II - verify against 2026 ordinance PDF
         val t = taxable.toDouble()
         return when {
             taxable <= 600_000L      -> 0.0
@@ -135,7 +135,7 @@ object TaxEngine {
     fun compute(d: ReturnData): Computation {
         val warnings = mutableListOf<String>()
 
-        // ââ Salary ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Salary --
         val taxableSalary = if (d.hasSalary) {
             val gross = if (d.salarySimpleMode) {
                 d.grossSalary
@@ -147,30 +147,30 @@ object TaxEngine {
             max(0L, gross - d.exemptMedicalAllowance - d.exemptHouseRentAllowance - d.otherExemptSalary)
         } else 0L
 
-        // ââ Business ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Business --
         val businessIncome = if (d.hasBusiness) d.businessNetIncome else 0L
 
-        // ââ Property ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Property --
         val propertyIncome = if (d.hasProperty) d.propertyNetIncome else 0L
 
-        // ââ Other sources (normal rates) ââââââââââââââââââââââââââââââââââââââ
+        // -- Other sources (normal rates) --
         val otherNormalIncome = if (d.hasOtherSources) d.otherIncome + d.foreignIncome else 0L
 
-        // ââ Normal regime income ââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Normal regime income --
         val normalIncome = taxableSalary + businessIncome + propertyIncome + otherNormalIncome
         val taxableIncome = max(0L, normalIncome - d.zakat - d.workerWelfareFund)
 
-        // ââ Salaried vs non-salaried ââââââââââââââââââââââââââââââââââââââââââ
+        // -- Salaried vs non-salaried --
         val isSalariedCase = taxableIncome == 0L ||
                 taxableSalary.toDouble() > 0.75 * taxableIncome
         if (!isSalariedCase) {
             warnings.add(
-                "Salary is not more than 75% of taxable income â non-salaried (higher) rates apply. " +
+                "Salary is not more than 75% of taxable income - non-salaried (higher) rates apply. " +
                 "Rates have been computed using non-salaried slabs."
             )
         }
 
-        // ââ Normal tax ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Normal tax --
         val normalTaxGross = if (isSalariedCase) salariedSlabTax(taxableIncome)
                              else nonSalariedSlabTax(taxableIncome)
 
@@ -191,11 +191,11 @@ object TaxEngine {
 
         val normalTaxNet = max(0L, taxAfterReduction + surcharge - pensionCredit - donationCredit)
 
-        // ââ Final taxes âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Final taxes --
         val totalPod = d.profitOnDebtBank + d.profitOnDebtNss
         if (totalPod > POD_FINAL_LIMIT) {
             warnings.add(
-                "Profit on debt exceeds Rs 5,000,000 â it falls outside the final tax regime u/s 7B " +
+                "Profit on debt exceeds Rs 5,000,000 - it falls outside the final tax regime u/s 7B " +
                 "and is taxable at normal rates. Consult a tax adviser."
             )
         }
@@ -206,7 +206,7 @@ object TaxEngine {
         val finalTaxDividend = if (d.hasOtherSources)
             (d.dividend * DIVIDEND_RATE).roundToLong() else 0L
 
-        // Capital gains â final tax
+        // Capital gains - final tax
         val propGainRate = propertyCapitalGainRate(d.propertyHoldingYears, d.propertyType)
         val finalTaxPropertyGain = if (d.hasCapitalGains)
             (d.propertyGainAmount * propGainRate).roundToLong() else 0L
@@ -219,12 +219,12 @@ object TaxEngine {
             warnings.add("Securities gains held >2 years: exempt from tax (Rs ${fmt(d.securitiesGainAbove2Yr)} not included in computation).")
         }
         if (d.hasCapitalGains && propGainRate == 0.0 && d.propertyGainAmount > 0) {
-            warnings.add("Property held ${d.propertyHoldingYears}+ years: gain is exempt from tax (Rs ${fmt(d.propertyGainImount)} not included).")
+            warnings.add("Property held ${d.propertyHoldingYears}+ years: gain is exempt from tax (Rs ${fmt(d.propertyGainAmount)} not included).")
         }
 
         val totalTaxChargeable = normalTaxNet + finalTaxProfitOnDebt + finalTaxDividend + finalTaxCapitalGains
 
-        // ââ Taxes paid / withheld âââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Taxes paid / withheld --
         val totalTaxPaid = d.taxDeductedSalary + d.taxDeductedBusiness + d.taxDeductedRent +
                 d.taxDeductedProfit + d.taxDeductedDividend + d.taxDeductedCapitalGains +
                 d.taxPhone + d.taxElectricity + d.taxVehicle +
@@ -232,7 +232,7 @@ object TaxEngine {
 
         val balance = totalTaxChargeable - totalTaxPaid
 
-        // ââ Wealth reconciliation âââââââââââââââââââââââââââââââââââââââââââââ
+        // -- Wealth reconciliation --
         val closingNetAssets = d.closingNetAssets
         val increase = closingNetAssets - d.openingNetAssets
         val inflows = taxableIncome + d.zakat + d.workerWelfareFund +
@@ -260,3 +260,4 @@ object TaxEngine {
 
     private fun fmt(v: Long): String = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(v)
 }
+Fix TaxEngine: typo propertyGainImount -> propertyGainAmount
