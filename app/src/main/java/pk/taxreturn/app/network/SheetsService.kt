@@ -22,7 +22,7 @@ object SheetsService {
 
     // Replace with your Google Apps Script deployment URL after setup
     private const val SCRIPT_URL =
-        "https://script.google.com/macros/s/REPLACE_WITH_YOUR_DEPLOYMENT_ID/exec"
+        "https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbxEb5uHHbxgbhS42ku9-y_fRNrG4oDlqkXsq4hN9AnUGccMXdmSZEjaWz3JYS2g6r23/exec/exec"
 
     /**
      * Posts a new user registration row to the admin sheet.
