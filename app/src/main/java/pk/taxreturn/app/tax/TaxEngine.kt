@@ -260,4 +260,3 @@ object TaxEngine {
 
     private fun fmt(v: Long): String = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(v)
 }
-Fix TaxEngine: typo propertyGainImount -> propertyGainAmount
